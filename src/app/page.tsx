@@ -2423,7 +2423,10 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       }
       
       // 提交更改
-      const gitCommitCommand = `git ${gitCParam} ${pathWithQuotes} commit -m "Update Hexo site"`;
+      // 注意：commit 消息使用双引号，wrapCommand 函数会正确处理 PowerShell 中的引号转义
+      const commitMessage = 'Update Hexo site';
+      const gitCommitCommand = `git ${gitCParam} ${pathWithQuotes} commit -m "${commitMessage}"`;
+      console.log('[Git Push] Commit 命令:', gitCommitCommand);
       const commitResult = await ipcRenderer.invoke('execute-command', gitCommitCommand);
       const commitLog = {
         ...commitResult,

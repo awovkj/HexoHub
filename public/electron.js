@@ -151,9 +151,15 @@ const WindowsCompat = {
     if (!WindowsCompat.isWindows()) {
       return command;
     }
-    // 使用更安全的转义方式，避免影响标题内容
-    const escaped = command.replace(/"/g, '""');
-    return `powershell -NoProfile -Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ${escaped}"`;
+    // 在 PowerShell 中处理包含引号的命令
+    // 方法：将命令中的双引号转义为反引号转义的双引号（PowerShell 语法）
+    // 在 PowerShell 的 -Command 参数中，要在双引号字符串中使用双引号，需要使用反引号转义：`"
+    // 但是，我们使用单引号包裹整个命令，这样内部的双引号会被当作字面量处理
+    // 
+    // 更好的方法：使用 PowerShell 的单引号来包裹整个命令字符串
+    // 单引号字符串中的内容会被原样传递，包括双引号
+    const escapedCommand = command.replace(/'/g, "''"); // 转义单引号（在单引号字符串中，单引号需要转义为两个单引号）
+    return `powershell -NoProfile -Command '[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; ${escapedCommand}'`;
   }
 };
 
