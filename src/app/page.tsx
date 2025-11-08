@@ -2332,21 +2332,38 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
     try {
       const ipcRenderer = await getIpcRenderer();
       
-      // 清理路径：去除首尾的引号（如果有）
-      // 处理可能的双重引号问题，例如："E:\Blog\blog" -> E:\Blog\blog
+      // 清理路径：彻底去除首尾的引号，并使用标准化的内部路径格式
+      // 1. 先去除所有首尾空白字符
       let cleanHexoPath = hexoPath.trim();
-      // 去除首尾的单引号或双引号（分别处理开头和结尾，避免只匹配一次的问题）
-      while ((cleanHexoPath.startsWith('"') && cleanHexoPath.endsWith('"')) || 
-             (cleanHexoPath.startsWith("'") && cleanHexoPath.endsWith("'"))) {
-        cleanHexoPath = cleanHexoPath.slice(1, -1);
-      }
+      
+      // 2. 使用正则表达式彻底去除首尾的所有引号（单引号或双引号）
+      // 匹配模式：开头和结尾的引号（可能有多层）
+      cleanHexoPath = cleanHexoPath.replace(/^["']+|["']+$/g, '');
+      
+      // 3. 再次去除可能的空白字符
+      cleanHexoPath = cleanHexoPath.trim();
+      
+      // 4. 使用 normalizePathInternal 标准化路径（统一使用正斜杠）
+      // Git 在 Windows 上也支持正斜杠路径，这样可以避免反斜杠转义问题
+      cleanHexoPath = normalizePathInternal(cleanHexoPath);
+      
+      // 调试信息：记录清理后的路径（用于排查问题）
+      console.log('[Git Push] 原始路径:', hexoPath);
+      console.log('[Git Push] 清理后路径:', cleanHexoPath);
       
       // 统一使用 -C 参数指定工作目录（Git 的标准参数）
       const gitCParam = '-C';
       
+      // 构建 Git 命令时，根据路径是否包含空格来决定是否添加引号
+      // 如果路径包含空格，必须添加引号；如果不包含空格，可以不添加引号以避免引号问题
+      const pathWithQuotes = cleanHexoPath.includes(' ') ? `"${cleanHexoPath}"` : cleanHexoPath;
+      
       // 配置Git用户信息
       // 使用 git -C 参数在指定目录下执行 git 命令
-      const configNameResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${cleanHexoPath}" config user.name "${pushUsername}"`);
+      // 注意：路径已经标准化为正斜杠，Git 可以正确处理
+      const gitConfigNameCommand = `git ${gitCParam} ${pathWithQuotes} config user.name "${pushUsername}"`;
+      console.log('[Git Push] 执行命令:', gitConfigNameCommand);
+      const configNameResult = await ipcRenderer.invoke('execute-command', gitConfigNameCommand);
       const configNameLog = {
         ...configNameResult,
         timestamp: new Date().toLocaleString(),
@@ -2359,7 +2376,8 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
         throw new Error(`配置Git用户名失败: ${configNameResult.stderr || configNameResult.error || '未知错误'}`);
       }
       
-      const configEmailResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${cleanHexoPath}" config user.email "${pushEmail}"`);
+      const gitConfigEmailCommand = `git ${gitCParam} ${pathWithQuotes} config user.email "${pushEmail}"`;
+      const configEmailResult = await ipcRenderer.invoke('execute-command', gitConfigEmailCommand);
       const configEmailLog = {
         ...configEmailResult,
         timestamp: new Date().toLocaleString(),
@@ -2374,7 +2392,8 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       
       // 添加远程仓库
       const remoteName = 'origin';
-      const addRemoteResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${cleanHexoPath}" remote set-url ${remoteName} ${pushRepoUrl}`);
+      const gitRemoteCommand = `git ${gitCParam} ${pathWithQuotes} remote set-url ${remoteName} ${pushRepoUrl}`;
+      const addRemoteResult = await ipcRenderer.invoke('execute-command', gitRemoteCommand);
       const addRemoteLog = {
         ...addRemoteResult,
         timestamp: new Date().toLocaleString(),
@@ -2389,7 +2408,8 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       }
       
       // 添加所有文件到暂存区
-      const addResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${cleanHexoPath}" add .`);
+      const gitAddCommand = `git ${gitCParam} ${pathWithQuotes} add .`;
+      const addResult = await ipcRenderer.invoke('execute-command', gitAddCommand);
       const addLog = {
         ...addResult,
         timestamp: new Date().toLocaleString(),
@@ -2403,7 +2423,8 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       }
       
       // 提交更改
-      const commitResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${cleanHexoPath}" commit -m "Update Hexo site"`);
+      const gitCommitCommand = `git ${gitCParam} ${pathWithQuotes} commit -m "Update Hexo site"`;
+      const commitResult = await ipcRenderer.invoke('execute-command', gitCommitCommand);
       const commitLog = {
         ...commitResult,
         timestamp: new Date().toLocaleString(),
@@ -2418,7 +2439,8 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       }
       
       // 推送到远程仓库
-      const pushResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${cleanHexoPath}" push -u ${remoteName} ${pushBranch}`);
+      const gitPushCommand = `git ${gitCParam} ${pathWithQuotes} push -u ${remoteName} ${pushBranch}`;
+      const pushResult = await ipcRenderer.invoke('execute-command', gitPushCommand);
       const pushLog = {
         ...pushResult,
         timestamp: new Date().toLocaleString(),
