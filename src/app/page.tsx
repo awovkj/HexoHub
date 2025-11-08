@@ -1797,25 +1797,25 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
     }
   };
 
-  // 执行Hexo命令
-  const executeHexoCommand = async (command: string) => {
-    if (!isElectron || !hexoPath) return;
+  // 执行单个Hexo命令的内部函数（不显示加载状态，用于组合命令）
+  const executeHexoCommandInternal = async (command: string, showToast: boolean = true) => {
+    if (!isElectron || !hexoPath) {
+      return { success: false, error: '无效的路径或环境' };
+    }
 
-    setIsLoading(true);
-    
-    // 显示开始执行命令的提示
-    let commandName = '';
-    if (command === 'clean') commandName = '清理缓存';
-    else if (command === 'generate') commandName = '生成静态文件';
-    else if (command === 'deploy') commandName = '部署网站';
-    else commandName = `执行命令: ${command}`;
-    
-    // 显示开始执行的通知
-    toast({
-      title: t.executing,
-      description: t.commandExecuting.replace('{command}', commandName),
-      variant: 'default',
-    });
+    if (showToast) {
+      let commandName = '';
+      if (command === 'clean') commandName = '清理缓存';
+      else if (command === 'generate') commandName = '生成静态文件';
+      else if (command === 'deploy') commandName = '部署网站';
+      else commandName = `执行命令: ${command}`;
+      
+      toast({
+        title: t.executing,
+        description: t.commandExecuting.replace('{command}', commandName),
+        variant: 'default',
+      });
+    }
 
     try {
       const ipcRenderer = await getIpcRenderer();
@@ -1828,6 +1828,96 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
         command: command
       };
       setCommandLogs(prev => [...prev, newLog]);
+      
+      return result;
+    } catch (error) {
+      console.error(`执行命令失败: ${command}`, error);
+      return {
+        success: false,
+        error: `执行命令失败: ${error instanceof Error ? error.message : '未知错误'}`
+      };
+    }
+  };
+
+  // 执行Hexo命令
+  const executeHexoCommand = async (command: string) => {
+    if (!isElectron || !hexoPath) return;
+
+    setIsLoading(true);
+    
+    try {
+      // 如果是部署命令，先执行 clean 和 generate
+      if (command === 'deploy') {
+        // 显示开始执行的通知
+        toast({
+          title: t.executing,
+          description: '正在执行清理、生成和部署...',
+          variant: 'default',
+        });
+
+        // 1. 执行清理
+        const cleanResult = await executeHexoCommandInternal('clean', false);
+        if (!cleanResult.success) {
+          setCommandResult(cleanResult);
+          toast({
+            title: t.failed,
+            description: '清理缓存失败: ' + (cleanResult.stderr || cleanResult.error || '未知错误'),
+            variant: 'error',
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // 2. 执行生成
+        const generateResult = await executeHexoCommandInternal('generate', false);
+        if (!generateResult.success) {
+          setCommandResult(generateResult);
+          toast({
+            title: t.failed,
+            description: '生成静态文件失败: ' + (generateResult.stderr || generateResult.error || '未知错误'),
+            variant: 'error',
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // 3. 执行部署
+        const deployResult = await executeHexoCommandInternal('deploy', false);
+        setCommandResult(deployResult);
+        
+        if (deployResult.success) {
+          toast({
+            title: t.success,
+            description: t.deploySuccess,
+            variant: 'success',
+          });
+        } else {
+          toast({
+            title: t.failed,
+            description: '部署失败: ' + (deployResult.stderr || deployResult.error || '未知错误'),
+            variant: 'error',
+          });
+        }
+        
+        setIsLoading(false);
+        return;
+      }
+
+      // 其他命令正常执行
+      // 显示开始执行命令的提示
+      let commandName = '';
+      if (command === 'clean') commandName = '清理缓存';
+      else if (command === 'generate') commandName = '生成静态文件';
+      else commandName = `执行命令: ${command}`;
+      
+      // 显示开始执行的通知
+      toast({
+        title: t.executing,
+        description: t.commandExecuting.replace('{command}', commandName),
+        variant: 'default',
+      });
+
+      const result = await executeHexoCommandInternal(command, false);
       setCommandResult(result);
       
       // 显示通知
@@ -2072,11 +2162,38 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
     // 显示开始启动服务器的通知
     toast({
       title: t.starting,
-      description: t.startingServer,
+      description: '正在执行清理、生成并启动服务器...',
       variant: 'default',
     });
 
     try {
+      // 1. 先执行清理
+      const cleanResult = await executeHexoCommandInternal('clean', false);
+      if (!cleanResult.success) {
+        setCommandResult(cleanResult);
+        toast({
+          title: t.failed,
+          description: '清理缓存失败: ' + (cleanResult.stderr || cleanResult.error || '未知错误'),
+          variant: 'error',
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. 执行生成
+      const generateResult = await executeHexoCommandInternal('generate', false);
+      if (!generateResult.success) {
+        setCommandResult(generateResult);
+        toast({
+          title: t.failed,
+          description: '生成静态文件失败: ' + (generateResult.stderr || generateResult.error || '未知错误'),
+          variant: 'error',
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // 3. 启动服务器
       const ipcRenderer = await getIpcRenderer();
       
       // Tauri 后端会等待服务器就绪后才返回
@@ -2175,7 +2292,7 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       console.error('启动服务器失败:', error);
       setCommandResult({
         success: false,
-        error: '启动服务器失败: ' + error.message
+        error: '启动服务器失败: ' + (error instanceof Error ? error.message : '未知错误')
       });
       
       // 显示错误通知
@@ -2215,13 +2332,21 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
     try {
       const ipcRenderer = await getIpcRenderer();
       
-      // Tauri 环境使用 -C（大写）指定工作目录，Electron 保持原样，能跑就不改了
-      const gitCParam = isTauri() ? '-C' : '-c';
+      // 清理路径：去除首尾的引号（如果有）
+      // 处理可能的双重引号问题，例如："E:\Blog\blog" -> E:\Blog\blog
+      let cleanHexoPath = hexoPath.trim();
+      // 去除首尾的单引号或双引号（分别处理开头和结尾，避免只匹配一次的问题）
+      while ((cleanHexoPath.startsWith('"') && cleanHexoPath.endsWith('"')) || 
+             (cleanHexoPath.startsWith("'") && cleanHexoPath.endsWith("'"))) {
+        cleanHexoPath = cleanHexoPath.slice(1, -1);
+      }
+      
+      // 统一使用 -C 参数指定工作目录（Git 的标准参数）
+      const gitCParam = '-C';
       
       // 配置Git用户信息
-      // Tauri: 使用 git -C 参数在指定目录下执行 git 命令（大写 C）
-      // Electron: 保持原有的 -c 参数
-      const configNameResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${hexoPath}" config user.name "${pushUsername}"`);
+      // 使用 git -C 参数在指定目录下执行 git 命令
+      const configNameResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${cleanHexoPath}" config user.name "${pushUsername}"`);
       const configNameLog = {
         ...configNameResult,
         timestamp: new Date().toLocaleString(),
@@ -2234,7 +2359,7 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
         throw new Error(`配置Git用户名失败: ${configNameResult.stderr || configNameResult.error || '未知错误'}`);
       }
       
-      const configEmailResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${hexoPath}" config user.email "${pushEmail}"`);
+      const configEmailResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${cleanHexoPath}" config user.email "${pushEmail}"`);
       const configEmailLog = {
         ...configEmailResult,
         timestamp: new Date().toLocaleString(),
@@ -2249,7 +2374,7 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       
       // 添加远程仓库
       const remoteName = 'origin';
-      const addRemoteResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${hexoPath}" remote set-url ${remoteName} ${pushRepoUrl}`);
+      const addRemoteResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${cleanHexoPath}" remote set-url ${remoteName} ${pushRepoUrl}`);
       const addRemoteLog = {
         ...addRemoteResult,
         timestamp: new Date().toLocaleString(),
@@ -2264,7 +2389,7 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       }
       
       // 添加所有文件到暂存区
-      const addResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${hexoPath}" add .`);
+      const addResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${cleanHexoPath}" add .`);
       const addLog = {
         ...addResult,
         timestamp: new Date().toLocaleString(),
@@ -2278,7 +2403,7 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       }
       
       // 提交更改
-      const commitResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${hexoPath}" commit -m "Update Hexo site"`);
+      const commitResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${cleanHexoPath}" commit -m "Update Hexo site"`);
       const commitLog = {
         ...commitResult,
         timestamp: new Date().toLocaleString(),
@@ -2293,7 +2418,7 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       }
       
       // 推送到远程仓库
-      const pushResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${hexoPath}" push -u ${remoteName} ${pushBranch}`);
+      const pushResult = await ipcRenderer.invoke('execute-command', `git ${gitCParam} "${cleanHexoPath}" push -u ${remoteName} ${pushBranch}`);
       const pushLog = {
         ...pushResult,
         timestamp: new Date().toLocaleString(),
