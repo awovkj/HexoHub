@@ -655,9 +655,10 @@ export default function Home() {
         }
         await validateHexoProject(normalizedPath);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('选择目录失败:', error);
-      setValidationMessage('选择目录失败: ' + error.message);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setValidationMessage('选择目录失败: ' + errorMessage);
     }
   };
 
@@ -675,9 +676,10 @@ export default function Home() {
       if (result.valid) {
         await loadPosts(path);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('验证项目失败:', error);
-      setValidationMessage('验证项目失败: ' + error.message);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      setValidationMessage('验证项目失败: ' + errorMessage);
     }
   };
 
@@ -1151,11 +1153,12 @@ export default function Home() {
           variant: 'error',
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('创建文章失败:', error);
+      const errorMessage = error instanceof Error ? error.message : (typeof error === 'object' && error !== null && 'message' in error ? String((error as { message: unknown }).message) : '未知错误');
       const createErrorResult = {
         success: false,
-        error: '创建文章失败: ' + (error?.message || '未知错误'),
+        error: '创建文章失败: ' + errorMessage,
         timestamp: new Date().toLocaleString(),
         command: 'create post'
       };
@@ -1230,7 +1233,7 @@ export default function Home() {
         // 重新提取标签和分类
         await extractTagsAndCategories(posts);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('更新文章元数据失败:', error);
     }
   };
@@ -1246,11 +1249,12 @@ export default function Home() {
       const ipcRenderer = await getIpcRenderer();
       const content = await ipcRenderer.invoke('read-file', post.path);
       setPostContent(content);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('读取文章失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const readErrorResult = {
         success: false,
-        error: '读取文章失败: ' + error.message,
+        error: '读取文章失败: ' + errorMessage,
         timestamp: new Date().toLocaleString(),
         command: 'read post'
       };
@@ -1295,11 +1299,12 @@ export default function Home() {
       
       // 保存后重新提取标签和分类
       await extractTagsAndCategories(posts);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('保存文章失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const saveErrorResult = {
         success: false,
-        error: '保存文章失败: ' + error.message,
+        error: '保存文章失败: ' + errorMessage,
         timestamp: new Date().toLocaleString(),
         command: 'save post'
       };
@@ -1349,11 +1354,12 @@ export default function Home() {
         description: t.articleDeleteSuccess,
         variant: 'success',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('删除文章失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const deleteErrorResult = {
         success: false,
-        error: '删除文章失败: ' + error.message,
+        error: '删除文章失败: ' + errorMessage,
         timestamp: new Date().toLocaleString(),
         command: 'delete post'
       };
@@ -1406,14 +1412,15 @@ export default function Home() {
       // 显示成功通知
       toast({
         title: t.success,
-        description: t.articlesDeleteSuccess.replace('{count}', postsToDelete.length),
+        description: t.articlesDeleteSuccess.replace('{count}', String(postsToDelete.length)),
         variant: 'success',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('批量删除文章失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const batchDeleteErrorResult = {
         success: false,
-        error: '批量删除文章失败: ' + error.message,
+        error: '批量删除文章失败: ' + errorMessage,
         timestamp: new Date().toLocaleString(),
         command: 'batch delete posts'
       };
@@ -1478,14 +1485,14 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
             await ipcRenderer.invoke('write-file', post.path, newContent);
             successCount++;
           }
-        } catch (error) {
+        } catch (error: unknown) {
           console.error(`更新文章 ${post.name} 失败:`, error);
         }
       }
 
       const batchTagResult = {
         success: true,
-        stdout: t.tagsAddSuccess.replace('{successCount}', successCount).replace('{totalCount}', postsToUpdate.length),
+        stdout: t.tagsAddSuccess.replace('{successCount}', String(successCount)).replace('{totalCount}', String(postsToUpdate.length)),
         timestamp: new Date().toLocaleString(),
         command: 'batch add tags'
       };
@@ -1500,11 +1507,12 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       
       // 重新提取标签和分类
       await extractTagsAndCategories(posts);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('批量添加标签失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const batchTagErrorResult = {
         success: false,
-        error: '批量添加标签失败: ' + error.message,
+        error: '批量添加标签失败: ' + errorMessage,
         timestamp: new Date().toLocaleString(),
         command: 'batch add tags'
       };
@@ -1564,14 +1572,14 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
             await ipcRenderer.invoke('write-file', post.path, newContent);
             successCount++;
           }
-        } catch (error) {
+        } catch (error: unknown) {
           console.error(`更新文章 ${post.name} 失败:`, error);
         }
       }
 
       setCommandResult({
         success: true,
-        stdout: t.categoriesAddSuccess.replace('{successCount}', successCount).replace('{totalCount}', postsToUpdate.length)
+        stdout: t.categoriesAddSuccess.replace('{successCount}', String(successCount)).replace('{totalCount}', String(postsToUpdate.length))
       });
 
       // 如果当前选中的文章在被更新的文章中，重新加载内容
@@ -1582,11 +1590,12 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       
       // 重新提取标签和分类
       await extractTagsAndCategories(posts);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('批量添加分类失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const batchCategoryErrorResult = {
         success: false,
-        error: '批量添加分类失败: ' + error.message,
+        error: '批量添加分类失败: ' + errorMessage,
         timestamp: new Date().toLocaleString(),
         command: 'batch add categories'
       };
@@ -1631,11 +1640,12 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
         description: t.articleDeleteSuccess,
         variant: 'success',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('删除文章失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const deleteErrorResult = {
         success: false,
-        error: '删除文章失败: ' + error.message,
+        error: '删除文章失败: ' + errorMessage,
         timestamp: new Date().toLocaleString(),
         command: 'delete post'
       };
@@ -1714,11 +1724,12 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
         // 重新提取标签和分类
         await extractTagsAndCategories(posts);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('添加标签失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       setCommandResult({
         success: false,
-        error: '添加标签失败: ' + error.message
+        error: '添加标签失败: ' + errorMessage
       });
     } finally {
       setIsLoading(false);
@@ -1786,11 +1797,12 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
         // 重新提取标签和分类
         await extractTagsAndCategories(posts);
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('添加分类失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       setCommandResult({
         success: false,
-        error: '添加分类失败: ' + error.message
+        error: '添加分类失败: ' + errorMessage
       });
     } finally {
       setIsLoading(false);
@@ -2129,11 +2141,12 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
           duration: 10000, // 错误提示显示 10 秒，给用户足够时间阅读
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('执行命令失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const commandErrorResult = {
         success: false,
-        error: '执行命令失败: ' + error.message,
+        error: '执行命令失败: ' + errorMessage,
         timestamp: new Date().toLocaleString(),
         command: command
       };
@@ -2288,11 +2301,12 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
           });
         }
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('启动服务器失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
       setCommandResult({
         success: false,
-        error: '启动服务器失败: ' + (error instanceof Error ? error.message : '未知错误')
+        error: '启动服务器失败: ' + errorMessage
       });
       
       // 显示错误通知
@@ -2425,22 +2439,43 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       // 提交更改
       // 注意：commit 消息使用双引号，wrapCommand 函数会正确处理 PowerShell 中的引号转义
       // 方案 2：使用 PowerShell 的转义语法
+      // 提交更改
+      // 终极方案：使用 Git 的 -F 参数从文件读取提交消息
+      // 这样可以完全避免 PowerShell/CMD 的引号转义问题
       const commitMessage = 'Update Hexo site';
-      const escapedMessage = commitMessage.replace(/"/g, '\\"');
-      const gitCommitCommand = `git ${gitCParam} ${pathWithQuotes} commit -m \`"${escapedMessage}\`"`;
-      console.log('[Git Push] Commit 命令:', gitCommitCommand);
-      const commitResult = await ipcRenderer.invoke('execute-command', gitCommitCommand);
-      const commitLog = {
-        ...commitResult,
-        timestamp: new Date().toLocaleString(),
-        command: 'git commit -m "Update Hexo site"'
-      };
-      setCommandLogs(prev => [...prev, commitLog]);
       
-      // 检查提交是否成功
-      // 注意：如果没有更改需要提交，git会返回非零状态码，但这不是错误
-      if (!commitResult.success && !commitResult.stderr?.includes('nothing to commit')) {
-        throw new Error(`提交更改失败: ${commitResult.stderr || commitResult.error || '未知错误'}`);
+      try {
+        // 1. 创建临时提交消息文件
+        const tempCommitFile = normalizePathInternal(`${cleanHexoPath}/.git/COMMIT_EDITMSG_TEMP`);
+        await ipcRenderer.invoke('write-file', tempCommitFile, commitMessage);
+        
+        // 2. 使用 -F 参数从文件读取提交消息
+        const gitCommitCommand = `git ${gitCParam} ${pathWithQuotes} commit -F .git/COMMIT_EDITMSG_TEMP`;
+        console.log('[Git Push] Commit 命令:', gitCommitCommand);
+        const commitResult = await ipcRenderer.invoke('execute-command', gitCommitCommand);
+        
+        // 3. 清理临时文件
+        try {
+          await ipcRenderer.invoke('delete-file', tempCommitFile);
+        } catch (cleanupError) {
+          console.warn('清理临时提交消息文件失败:', cleanupError);
+        }
+        
+        const commitLog = {
+          ...commitResult,
+          timestamp: new Date().toLocaleString(),
+          command: `git commit -m "${commitMessage}"`
+        };
+        setCommandLogs(prev => [...prev, commitLog]);
+        
+        // 检查提交是否成功
+        // 注意：如果没有更改需要提交，git会返回非零状态码，但这不是错误
+        if (!commitResult.success && !commitResult.stderr?.includes('nothing to commit')) {
+          throw new Error(`提交更改失败: ${commitResult.stderr || commitResult.error || '未知错误'}`);
+        }
+      } catch (commitError: unknown) {
+        const errorMessage = commitError instanceof Error ? commitError.message : String(commitError);
+        throw new Error(`提交过程出错: ${errorMessage}`);
       }
       
       // 推送到远程仓库
@@ -2473,11 +2508,12 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
         description: t.pushSuccess,
         variant: 'success',
       });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('推送失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const pushErrorResult = {
         success: false,
-        error: '推送失败: ' + error.message,
+        error: '推送失败: ' + errorMessage,
         timestamp: new Date().toLocaleString(),
         command: 'push to remote'
       };
@@ -2549,11 +2585,12 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
           variant: 'error',
         });
       }
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('停止服务器失败:', error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
       const serverStopErrorResult = {
         success: false,
-        error: '停止服务器失败: ' + error.message,
+        error: '停止服务器失败: ' + errorMessage,
         timestamp: new Date().toLocaleString(),
         command: 'stop server'
       };
