@@ -2424,8 +2424,10 @@ const newContent = content.replace(/^---\n[\s\S]*?\n---/, `---\n${frontMatter}\n
       
       // 提交更改
       // 注意：commit 消息使用双引号，wrapCommand 函数会正确处理 PowerShell 中的引号转义
+      // 方案 2：使用 PowerShell 的转义语法
       const commitMessage = 'Update Hexo site';
-      const gitCommitCommand = `git ${gitCParam} ${pathWithQuotes} commit -m '${commitMessage}'`;
+      const escapedMessage = commitMessage.replace(/"/g, '\\"');
+      const gitCommitCommand = `git ${gitCParam} ${pathWithQuotes} commit -m \`"${escapedMessage}\`"`;
       console.log('[Git Push] Commit 命令:', gitCommitCommand);
       const commitResult = await ipcRenderer.invoke('execute-command', gitCommitCommand);
       const commitLog = {
